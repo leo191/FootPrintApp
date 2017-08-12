@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:gravity="center"
+    android:background="@drawable/body_bg"
+    android:orientation="vertical"
+    android:padding="10dp" >
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp" >
+
+        <android.support.design.widget.TextInputLayout
+            android:id="@+id/etEmailLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+
+            android:textColorHint="@android:color/white"
+            >
+        <android.support.v7.widget.AppCompatEditText
+            android:id="@+id/log_contact_no"
+            android:drawablePadding="5dp"
+            android:minWidth="350dp"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:textSize="20dp"
+            android:hint="Phone Number"
+            android:textColor="@android:color/white"
+            android:inputType="textEmailAddress"
+            android:paddingRight="10dp"
+            android:drawableLeft="@drawable/phone"
+
+           />
+
+        </android.support.design.widget.TextInputLayout>
+
+
+
+
+        <android.support.design.widget.TextInputLayout
+            android:id="@+id/etPasswordLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:passwordToggleEnabled="true"
+            android:textColorHint="@android:color/white"
+            app:passwordToggleTint="@android:color/white"
+            >
+        <android.support.v7.widget.AppCompatEditText
+            android:id="@+id/log_password"
+            android:minWidth="350dp"
+            android:drawablePadding="5dp"
+            android:drawableStart="@drawable/lock"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:hint="@string/hint_password"
+            android:inputType="textPassword"
+            android:paddingRight="10dp"
+            android:textColor="@color/white"
+            android:textColorHint="@color/input_login_hint"
+            android:drawableLeft="@drawable/lock" />
+        </android.support.design.widget.TextInputLayout>
+        <!-- Login Button -->
+
+
+
+
+
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dip"
+            android:background="@drawable/round_edged_button"
+            android:text="@string/btn_login"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            />
+
+        <!-- Link to Login Screen -->
+
+        <Button
+            android:id="@+id/btnLinkToRegisterScreen"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dip"
+            android:background="@null"
+            android:text="@string/btn_link_to_register"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="15dp" />
+    </LinearLayout>
+
+</android.support.design.widget.CoordinatorLayout>

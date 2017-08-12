@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">FootPrint(Driver)</string>
+    <string name="hint_contact_no">Contact Number</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_first_name">First Name</string>
+    <string name="hint_last_name">Last Name</string>
+    <string name="btn_login">LOGIN</string>
+    <string name="btn_register">REGISTER</string>
+    <string name="btn_link_to_register">Not a member? Sign up now.</string>
+    <string name="btn_link_to_login">Already registred! Login Me.</string>
+    <string name="welcome">Welcome</string>
+    <string name="btn_logout">LOGOUT</string>
+    <string name="child_name">Child Name</string>
+    <string name="name">Fullname</string>
 </resources>

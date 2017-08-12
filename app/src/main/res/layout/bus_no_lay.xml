@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <android.support.design.widget.TextInputLayout
+        android:id="@+id/etPasswordLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        >
+
+        <android.support.v7.widget.AppCompatEditText
+            android:layout_margin="5dp"
+            android:imeOptions="actionNext"
+            android:id="@+id/bus_no_edit"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edittext_draw"
+            android:inputType="textPhonetic"
+            android:drawableLeft="@drawable/license_plate"
+            android:drawableStart="@drawable/license_plate"
+            android:drawablePadding="20dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:hint="Bus No"
+            />
+    </android.support.design.widget.TextInputLayout>
+</LinearLayout>

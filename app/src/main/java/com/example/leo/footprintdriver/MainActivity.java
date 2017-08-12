@@ -1,12 +1,18 @@
 package com.example.leo.footprintdriver;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -15,23 +21,42 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.AppCompatEditText;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.LinearInterpolator;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
+import config.AppConfig;
+import helper.SQLiteHandler;
 import helper.SendLocation;
 import helper.SendLocationService;
+import helper.SessionManager;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -45,6 +70,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -52,7 +79,11 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.mvc.imagepicker.*;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import static com.google.android.gms.location.LocationServices.FusedLocationApi;
+import static java.lang.Math.abs;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
@@ -64,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     de.hdodenhof.circleimageview.CircleImageView circlImg;
 
 
-    public static final long UPDATE_INTERVAL_IN_MILLISECONDS = 3000;
+    public static final long UPDATE_INTERVAL_IN_MILLISECONDS = 5000;
 
     public static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS =
             UPDATE_INTERVAL_IN_MILLISECONDS / 2;
@@ -75,14 +106,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mCurrentLocation;
+    private TextView mCurrentAdd;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private static final int REQUEST_CHECK_SETTINGS = 10;
     private FusedLocationProviderApi fusedLocationProviderApi = FusedLocationApi;
-
     private SendLocation sendLoc = null;
+    private SQLiteHandler db;
+    private HashMap<String, String> driver;
+    private ProgressDialog pDialog;
+
+    private TextView tv_name,tv_bus_no;
     FloatingActionButton fab;
     GoogleMap mGmap;
     Marker mMarker;
+    String bus_no,contact_no;
     PolylineOptions polylineoption;
     Polyline poli;
     ArrayList<LatLng> PolyLinePoints = new ArrayList<LatLng>();
@@ -90,12 +127,34 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     Button bt;
     Polyline line;
     Intent intent;
+    Bitmap icon;
+
     private static final int LOCATION_REQUEST_CODE = 101;
+
+    private boolean startFLAG =false;
+    private SessionManager session;
+
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setUpToolBar();
+        tv_bus_no = (TextView)findViewById(R.id.tv_bus_no);
+        tv_name = (TextView)findViewById(R.id.tv_driver_name);
+
+        pDialog = new ProgressDialog(MainActivity.this);
+        db=new SQLiteHandler(getApplicationContext());
+        driver = db.getUserDetails();
+        session = new SessionManager(getApplicationContext());
+
+        if (!session.isLoggedIn()) {
+            logoutUser();
+        }
+        setDriver_info();
+
 
 
         requestPermission(Manifest.permission.ACCESS_FINE_LOCATION,
@@ -113,6 +172,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View v) {
                 if (mGmap != null && mCurrentLocation != null) {
+                    startFLAG =true;
                     mGmap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()), 18));
                 }
 
@@ -141,6 +201,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
 
     }
+
+
+    public void setDriver_info()
+    {
+
+        tv_bus_no.setText(driver.get("bus_no"));
+        tv_name.setText(driver.get("first_name")+" "+driver.get("last_name"));
+
+    }
+
+
+
+
+
+
+
 
     protected void requestPermission(String permissionType, int requestCode) {
         int permission = ContextCompat.checkSelfPermission(this,
@@ -177,16 +253,148 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.logout_menu:
+            case R.id.settings_menu:
                 return true;
-            case R.id.edit_details_menu:
-                Intent intent = new Intent(this, EditDetailsActivity.class);
-                startActivity(intent);
+            /*case R.id.edit_details_menu:
+                LayoutInflater inflater = MainActivity.this.getLayoutInflater();
+                View content =  inflater.inflate(R.layout.bus_no_lay, null);
+                final AppCompatEditText bus_no_up = (AppCompatEditText)content.findViewById(R.id.bus_no_edit);
+                AlertDialog.Builder alert =  new AlertDialog.Builder(this);
+                alert.setTitle("Enter Bus Number");
+                alert.setView(content);
+                alert.setPositiveButton("Set", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+//                        Runnable runnable = new Runnable() {
+//                            @Override
+//                            public void run() {
+                                UpdateBus(bus_no_up.getText().toString());
+//                            }
+//                        };
+
+                    }
+                });
+
+                alert.setNegativeButton("Cancel",null);
+
+                AlertDialog dialog = alert.create();
+                dialog.show();
+                return true;*/
+            case  R.id.log_out:
+                    logoutUser();
                 return true;
+
 
         }
         return false;
     }
+
+
+    private void logoutUser() {
+        session.setLogin(false);
+
+        db.deleteUsers();
+
+        // Launching the login activity
+        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+        startActivity(intent);
+        finish();
+    }
+
+
+
+    public void UpdateBus(final String bus_no)
+    {
+         RequestQueue requestQ;
+         Request rqst ;
+
+        String tag_string_req = "req_update_bus";
+
+
+        contact_no = driver.get("contact_no");
+        pDialog.setMessage("Updating Bus no ...");
+        showDialog();
+        requestQ = Volley.newRequestQueue(this);
+
+        rqst = new StringRequest(Request.Method.POST,
+                AppConfig.URL_BUS_UPDATE, new Response.Listener<String>() {
+
+            @Override
+            public void onResponse(String response) {
+                Log.d(TAG, "Login Response: " + response.toString());
+                hideDialog();
+
+                try {
+                    JSONObject jObj = new JSONObject(response);
+                    boolean error = jObj.getBoolean("error");
+
+                    // Check for error node in json
+                    if (!error) {
+                       Toast.makeText(MainActivity.this,"Updated",Toast.LENGTH_SHORT).show();
+
+                    } else {
+                        // Error in login. Get the error message
+                        String errorMsg = jObj.getString("error_msg");
+                        Toast.makeText(getApplicationContext(),
+                                errorMsg, Toast.LENGTH_LONG).show();
+                    }
+                } catch (JSONException e) {
+                    // JSON error
+                    e.printStackTrace();
+                    Toast.makeText(getApplicationContext(), "Json error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+
+            }
+        }, new Response.ErrorListener() {
+
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e(TAG, "Bus no update error: " + error.getMessage());
+                Toast.makeText(getApplicationContext(),
+                        error.getMessage(), Toast.LENGTH_LONG).show();
+                hideDialog();
+            }
+        }) {
+
+            @Override
+            protected Map<String, String> getParams() {
+                // Posting parameters to login url
+                Map<String, String> params = new HashMap<String, String>();
+                params.put("bus_no",bus_no);
+
+                params.put("contact_no", contact_no);
+
+                return params;
+            }
+
+        };
+
+
+        // Adding request to request queue
+        //AppController.getInstance().addToRequestQueue(strReq);
+        requestQ.add(rqst);
+    }
+
+    private void showDialog() {
+        if (!pDialog.isShowing())
+            pDialog.show();
+    }
+
+    private void hideDialog() {
+        if (pDialog.isShowing())
+            pDialog.dismiss();
+    }
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     protected void onActivityResult(int requestCode, final int resultCode, Intent data) {
@@ -200,13 +408,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onActivityResult(requestCode, resultCode, data);
     }
 
+
+
+
+    //setup toolbar and appearance
     public void setUpToolBar() {
+        mCurrentAdd =(TextView)findViewById(R.id.tv_current_place);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         ActionBar actionBar = getSupportActionBar();
-
         collapsingToolbarLayout = (CollapsingToolbarLayout) findViewById(R.id.collapsing_toolbar);
         collapsingToolbarLayout.setTitle("DPS");
+        collapsingToolbarLayout.setCollapsedTitleTextColor(Color.BLACK);
         toolbarTextAppernce();
     }
 
@@ -217,7 +430,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-    //checks
+    //checks play service
     public static boolean isPlayServicesAvailable(Context context) {
         int resultCode = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context);
         if (resultCode != ConnectionResult.SUCCESS) {
@@ -228,11 +441,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-    ///Location based Function
+    ///initializes google map and some factory methods{
 
     private void initMap() {
         MapFragment mapfrg = (MapFragment) getFragmentManager().findFragmentById(R.id.map_of_bus);
         mapfrg.getMapAsync(this);
+
+        icon = BitmapFactory.decodeResource(getResources(),R.drawable.bus);
+        icon = Bitmap.createScaledBitmap(icon,100,100,true);
     }
 
 
@@ -258,6 +474,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mGmap = googleMap;
+        mGmap.getUiSettings().setRotateGesturesEnabled(false);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
 
             return;
@@ -266,20 +483,35 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
+//// end of factory methods}
 
 
 
+
+
+///fusedlocation api on first connection
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        Location locnorm=fusedLocationProviderApi.getLastLocation(mGoogleApiClient);
-        if(locnorm !=null) {
-            mGmap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locnorm.getLatitude(), locnorm.getLongitude()), 18));
-            LatLng ltlg = new LatLng(locnorm.getLatitude(),locnorm.getLongitude());
+        mCurrentLocation=fusedLocationProviderApi.getLastLocation(mGoogleApiClient);
+        if(mCurrentLocation !=null) {
+            if(mMarker!=null)
+                mMarker.remove();
+            List<Address> add;
+            Geocoder geocoder = new Geocoder(this, Locale.getDefault());
 
+            try {
+                add = geocoder.getFromLocation(mCurrentLocation.getLatitude(),mCurrentLocation.getLongitude(),1);
+                mCurrentAdd.setText(add.get(0).getLocality());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            mGmap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude()), 18));
+            LatLng ltlg = new LatLng(mCurrentLocation.getLatitude(),mCurrentLocation.getLongitude());
+            mMarker = mGmap.addMarker(new MarkerOptions().position(ltlg).icon(BitmapDescriptorFactory.fromBitmap(icon)));
             intent = new Intent(MainActivity.this, SendLocationService.class);
             Bundle bund =new Bundle();
 
@@ -304,26 +536,89 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
+
+
+
+    /////Every time location changes it updates the marker
     @Override
     public void onLocationChanged(Location location) {
 
+
+        if(mCurrentLocation!=null && mMarker !=null)
+            if(abs(mCurrentLocation.getLongitude() - location.getLongitude())>.000001 || abs(mCurrentLocation.getLatitude() - location.getLatitude()) > .000001 )
+            {rotateMarker(mMarker,new LatLng(location.getLatitude(),location.getLongitude()),mCurrentLocation.bearingTo(location));}
+
+
         mCurrentLocation = location;
+
 
         //Toast.makeText(getApplicationContext(), String.valueOf(mCurrentLocation.getLatitude()) + " " + String.valueOf(mCurrentLocation.getLatitude()), Toast.LENGTH_SHORT).show();
         Bundle bundle = new Bundle();
         latLng = new LatLng(mCurrentLocation.getLatitude(),mCurrentLocation.getLongitude());
-//        intent = new Intent(MainActivity.this, SendLocationService.class);
-        bundle.putString("bus_no","WB1234");
-        bundle.putDouble("latitude",latLng.latitude);
-        bundle.putDouble("longitude",latLng.longitude);
-        intent.putExtra("bundle",bundle);
-        startService(intent);
+        CameraPosition cameraPosition = new CameraPosition.Builder().target(
+                latLng).zoom(15).build();
 
-        Toast.makeText(getApplicationContext(),latLng.latitude + " " +latLng.longitude,Toast.LENGTH_LONG).show();
-        PolyLinePoints.add(latLng);
-        redrawLine();
+        mGmap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+
+//        intent = new Intent(MainActivity.this, SendLocationService.class);
+        if(startFLAG) {
+            bundle.putString("bus_no", "WB1234");
+            bundle.putDouble("latitude", latLng.latitude);
+            bundle.putDouble("longitude", latLng.longitude);
+            intent.putExtra("bundle", bundle);
+            startService(intent);
+        }
+        //Toast.makeText(getApplicationContext(),latLng.latitude + " " +latLng.longitude,Toast.LENGTH_LONG).show();
+//        PolyLinePoints.add(latLng);
+//        redrawLine();
 
     }
+
+
+
+
+
+
+
+///animations
+
+    private  void  rotateMarker(final Marker marker, final LatLng destination, final float bearing) {
+
+        if (marker != null) {
+
+            final LatLng startPosition = marker.getPosition();
+
+            final LatLngInterpolator latLngInterpolator = new LatLngInterpolator.Spherical();
+            ValueAnimator valueAnimator = ValueAnimator.ofFloat(0, 1);
+            valueAnimator.setDuration(800); // duration 3 second
+            valueAnimator.setInterpolator(new LinearInterpolator());
+            valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+
+                    try {
+                        float v = animation.getAnimatedFraction();
+                        LatLng newPosition = latLngInterpolator.interpolate(v, startPosition, destination);
+
+
+                        marker.setRotation(bearing);
+                        marker.setPosition(newPosition);
+
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            });
+            valueAnimator.start();
+        }
+    }
+
+
+
+
+
+
 
 
     public  LatLng stablize(Location loc)
@@ -332,6 +627,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Double.parseDouble(new DecimalFormat("##.####").format(loc.getLongitude())));
         return stLatln;
     }
+
+
+
 
 
     public void addMarker()
